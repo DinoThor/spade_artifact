@@ -42,7 +42,7 @@ jobs:
 
     - name: Set up dependencies
       run: |
-        uv sync --extra dev
+        uv sync --all-extras
 
     - name: Save uv cache (if cache miss)
       if: steps.cache-restore-windows.outputs.cache-hit != 'true'
