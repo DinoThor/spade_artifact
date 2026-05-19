@@ -1,4 +1,4 @@
-spade>=4.1.3
+spade==4.1.3
 spade-pubsub>=0.3.0
 pandas>=2.3.3
 aiohttp>=3.13.5
