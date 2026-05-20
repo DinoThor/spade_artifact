@@ -2,14 +2,23 @@ name: Python package
 
 on:
   push:
-    branches: [ master, develop, ci/* ]
+    branches: [ master, develop, gh-testing ]
     tags:
       - "*"
+    paths-ignore:
+        - "docs/**"
+        - "**/*.md"
+        - "**/*.rst"
   pull_request:
     branches:
       - "*"
+    paths-ignore:
+        - "docs/**"
+        - "**/*.md"
+        - "**/*.rst"
 
 jobs:
+
   lint:
     runs-on: ubuntu-latest
     steps:
