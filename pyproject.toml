@@ -1,0 +1,84 @@
+[build-system]
+requires = [
+    "setuptools>=77.0.0",
+    "wheel"
+    ]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "spade-artifact"
+dynamic = ["version", "dependencies"]
+description = "Plugin for SPADE 3 to develop artifacts"
+authors = [{ name = "Javi Palanca", email = "jpalanca@gmail.com" }]
+maintainers = [{ name = "Javi Palanca", email = "jpalanca@gmail.com" }]
+license = "MIT"
+readme = "README.rst"
+keywords = ["spade", "artifact", "pubsub", "multi-agent system"]
+requires-python = ">=3.10, <=3.14"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Internet :: XMPP"
+]
+
+[project.optional-dependencies]
+dev = [
+    "bump-my-version==1.3.0",
+    "wheel>=0.47.0",
+    "watchdog>=6.0.0",
+    "ruff>=0.15.13",
+    "black>=26.3.1",
+    "tox>=4.54.0",
+    "coverage>=7.14.0",
+    "pytest>=9.0.3",
+    "pytest-asyncio==1.3.0",
+    "pytest-mock>=3.10.0",
+    "requests>=2.34.2",
+    "parsel>=1.11.0",
+    "testfixtures>=6.17.1",
+    "factory-boy>=3.3.0",
+    "aioresponses>=0.7.8",
+    "aiounittest~=1.5.0",
+    "Sphinx>=8.1.3",
+    "docutils>=0.21.2",
+    "sphinx-rtd-theme>=3.1.0"
+]
+
+[project.urls]
+"Documentation"="https://spade-artifact.readthedocs.io"
+"Homepage"="https://spadeagents.eu/plugins/spade-artifact"
+"Bug Tracker"="https://github.com/javipalanca/spade_artifact/issues"
+
+[tool.setuptools]
+packages = ["spade_artifact"]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "spade_artifact.__version__"}
+dependencies = {file = ["requirements.txt"]}
+
+[tool.ruff]
+lint.select = ["E", "F"]
+lint.ignore = ["E501"]
+line-length = 88
+target-version = "py38"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+[tool.ruff.lint.isort]
+known-first-party = ["spade_artifact"]
