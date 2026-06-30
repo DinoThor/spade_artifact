@@ -10,9 +10,9 @@ from spade_artifact import ArtifactMixin
 
 
 class RandomGeneratorArtifact(spade_artifact.Artifact):
-    def on_available(self, jid, stanza):
+    def on_available(self, jid, presence_info, last_presence):
         logger.success(
-            "[{}] Agent {} is available.".format(self.name, jid.split("@")[0])
+            "[{}] Agent {} is available.".format(self.name, jid)
         )
 
     def on_subscribed(self, jid):
@@ -31,7 +31,7 @@ class RandomGeneratorArtifact(spade_artifact.Artifact):
                 self.name, jid.split("@")[0]
             )
         )
-        self.presence.approve(jid)
+        self.presence.approve_subscription(jid)
         self.presence.subscribe(jid)
 
     async def setup(self):
@@ -57,11 +57,17 @@ class ConsumerAgent(ArtifactMixin, Agent):
         super().__init__(*args, **kwargs)
         self.artifact_jid = artifact_jid
 
+    def on_available(self, jid, presence_info, last_presence):
+        logger.success(
+            "[{}] Artefact {} is available.".format(self.name, jid)
+        )
+
     def artifact_callback(self, artifact, payload):
         logger.info(f"Received: [{artifact}] -> {payload}")
 
     async def setup(self):
         await asyncio.sleep(2)
+        self.presence.on_available = self.on_available
         self.presence.approve_all = True
         self.presence.subscribe(self.artifact_jid)
         self.presence.set_available()
