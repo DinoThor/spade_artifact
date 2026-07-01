@@ -21,8 +21,13 @@ class InserterArtifact(spade_artifact.Artifact):
          data_processor (Callable): Function to process the data received from the artifact.
          json_template (dict): Template for constructing JSON payloads.
          json_exceptions (dict): Exceptions for JSON cleaning rules.
+      """
+    def __init__(self, jid, passwd, publisher_jid, host, project_name, columns_update=[],
+                 data_processor=None, json_template=None, json_exceptions=None, port='9090'):
+        """
+        Initializes the InserterArtifact object with the given parameters.
 
-      Args:
+        Args:
           jid (str): Jabber ID for the artifact.
           passwd (str): Password for the artifact's Jabber ID.
           publisher_jid (str): Jabber ID of the publisher artifact.
@@ -33,22 +38,6 @@ class InserterArtifact(spade_artifact.Artifact):
           json_template (dict, optional): Template for constructing JSON payloads. Default is an empty dictionary.
           json_exceptions (dict, optional): Exceptions for JSON cleaning rules. Default is an empty dictionary.
           port (str, optional): : The network port number on which the context broker service is listening
-      """
-    def __init__(self, jid, passwd, publisher_jid, host, project_name, columns_update=[],
-                 data_processor=None, json_template=None, json_exceptions=None, port='9090'):
-        """
-        Initializes the InserterArtifact object with the given parameters.
-
-        Args:
-            jid (str): Jabber ID for the artifact.
-            passwd (str): Password for the artifact's Jabber ID.
-            publisher_jid (str): Jabber ID of the publisher artifact.
-            orion_ip (str): IP address of the Orion Context Broker.
-            project_name (str): Name of the project (used as tenant in headers).
-            columns_update (list, optional): List of columns to update. Default is an empty list.
-            data_processor (callable, optional): Function to process data. If None, uses default_data_processor.
-            json_template (dict, optional): Template for constructing JSON payloads. Default is an empty dictionary.
-            json_exceptions (dict, optional): Exceptions for JSON cleaning rules. Default is an empty dictionary.
         """
         super().__init__(jid, passwd)
 
@@ -196,86 +185,7 @@ class InserterArtifact(spade_artifact.Artifact):
         Returns:
             dict: A dictionary representing the JSON structure of the Orion entity.
         """
-
-        def replace_placeholders(template, payload):
-            if isinstance(template, dict):
-                result = {}
-                for k, v in template.items():
-                    if k == "id":
-                        result[k] = template[k].format(**payload)
-                    else:
-                        replaced_value = replace_placeholders(v, payload)
-                        if replaced_value is not None:
-                            result[k] = replaced_value
-                return result if result else None
-            elif isinstance(template, list):
-                result = [replace_placeholders(item, payload) for item in template]
-                result = [item for item in result if item is not None]
-                return result if result else None
-            elif isinstance(template, str):
-                try:
-                    key = template.strip("{}")
-                    if key in payload:
-                        return payload[key]
-                    else:
-                        return template if "{" not in template and "}" not in template else None
-                except KeyError:
-                    return None
-            else:
-                return template
-
-        def fill_missing_values(result, exceptions):
-            if isinstance(result, dict):
-                for k, v in result.items():
-                    if isinstance(v, dict):
-                        exception_key = exceptions.get(k, 'value')
-                        if exception_key not in v and not any(key in v for key in ['value', 'coordinates', 'object']):
-                            if v.get("type") == "Point":
-                                v["coordinates"] = [0.0, 0.0]
-                            elif v.get("type") == "Relationship":
-                                v["object"] = "urn:ngsi-ld:Relationship:default"
-                            else:
-                                v["value"] = 'None'
-                        fill_missing_values(v, exceptions)
-                    elif isinstance(v, list):
-                        fill_missing_values(v, exceptions)
-            elif isinstance(result, list):
-                for item in result:
-                    fill_missing_values(item, exceptions)
-
-        def clean_result(result, exceptions):
-            if isinstance(result, dict):
-                keys_to_remove = []
-                for k, v in result.items():
-                    if isinstance(v, dict):
-                        clean_result(v, exceptions)
-                        if k in exceptions:
-                            if exceptions[k] not in v:
-                                keys_to_remove.append(k)
-                        else:
-                            condition1 = 'value' not in v and 'coordinates' not in v and 'object' not in v
-                            condition2 = 'type' in v and k != 'type' and k != 'id'
-                            if condition1 and condition2:
-                                keys_to_remove.append(k)
-                    elif isinstance(v, list):
-                        clean_result(v, exceptions)
-                        if not v:
-                            keys_to_remove.append(k)
-
-                for k in keys_to_remove:
-                    del result[k]
-            elif isinstance(result, list):
-                items_to_remove = []
-                for item in result:
-                    clean_result(item, exceptions)
-
-                    if not item:
-                        items_to_remove.append(item)
-
-                for item in items_to_remove:
-                    result.remove(item)
-
-        result = replace_placeholders(self.json_template, payload)
+        result = self._replace_placeholders(self.json_template, payload)
         if result is None:
             result = {}
 
@@ -287,9 +197,9 @@ class InserterArtifact(spade_artifact.Artifact):
 
         # Clean the result to remove entries without 'value' or 'type'
         if clean:
-            clean_result(result, self.json_exceptions)
+            self._clean_result(result, self.json_exceptions)
         else:
-            fill_missing_values(result, self.json_exceptions)
+            self._fill_missing_values(result, self.json_exceptions)
 
         return result
 
@@ -491,3 +401,91 @@ class InserterArtifact(spade_artifact.Artifact):
                 await self.process_and_send_data(payload)
             except Exception as e:
                 logger.error(f"Error processing and sending data: {str(e)}")
+
+    def _replace_placeholders(self, template, payload):
+        if isinstance(template, dict):
+            result = {}
+            for k, v in template.items():
+                if k == "id":
+                    result[k] = template[k].format(**payload)
+                else:
+                    replaced_value = self._replace_placeholders(v, payload)
+                    if replaced_value is not None:
+                        result[k] = replaced_value
+            return result if result else None
+        elif isinstance(template, list):
+            result = [self._replace_placeholders(item, payload) for item in template]
+            result = [item for item in result if item is not None]
+            return result if result else None
+        elif isinstance(template, str):
+            try:
+                key = template.strip("{}")
+                if key in payload:
+                    return payload[key]
+                else:
+                    return (
+                        template
+                        if "{" not in template and "}" not in template
+                        else None
+                    )
+            except KeyError:
+                return None
+        else:
+            return template
+
+    def _fill_missing_values(self, result, exceptions):
+        if isinstance(result, dict):
+            for k, v in result.items():
+                if isinstance(v, dict):
+                    exception_key = exceptions.get(k, "value")
+                    if exception_key not in v and not any(
+                        key in v for key in ["value", "coordinates", "object"]
+                    ):
+                        if v.get("type") == "Point":
+                            v["coordinates"] = [0.0, 0.0]
+                        elif v.get("type") == "Relationship":
+                            v["object"] = "urn:ngsi-ld:Relationship:default"
+                        else:
+                            v["value"] = "None"
+                    self._fill_missing_values(v, exceptions)
+                elif isinstance(v, list):
+                    self._fill_missing_values(v, exceptions)
+        elif isinstance(result, list):
+            for item in result:
+                self._fill_missing_values(item, exceptions)
+
+    def _clean_result(self, result, exceptions):
+        if isinstance(result, dict):
+            keys_to_remove = []
+            for k, v in result.items():
+                if isinstance(v, dict):
+                    self._clean_result(v, exceptions)
+                    if k in exceptions:
+                        if exceptions[k] not in v:
+                            keys_to_remove.append(k)
+                    else:
+                        condition1 = (
+                            "value" not in v
+                            and "coordinates" not in v
+                            and "object" not in v
+                        )
+                        condition2 = "type" in v and k != "type" and k != "id"
+                        if condition1 and condition2:
+                            keys_to_remove.append(k)
+                elif isinstance(v, list):
+                    self._clean_result(v, exceptions)
+                    if not v:
+                        keys_to_remove.append(k)
+
+            for k in keys_to_remove:
+                del result[k]
+        elif isinstance(result, list):
+            items_to_remove = []
+            for item in result:
+                self._clean_result(item, exceptions)
+
+                if not item:
+                    items_to_remove.append(item)
+
+            for item in items_to_remove:
+                result.remove(item)

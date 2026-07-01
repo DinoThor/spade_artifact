@@ -65,7 +65,7 @@ class MongoDBQueryArtifact(spade_artifact.Artifact):
             else self.default_data_processor
         )
         self.time_request = time_request
-        self.client = None
+        self.mongo_client = None
         self.db = None
         self.collection = None
 
@@ -85,7 +85,7 @@ class MongoDBQueryArtifact(spade_artifact.Artifact):
         )
         return [data]
 
-    async def update_query(self):
+    async def update_query(self):   #pragma: no cover
         """
         This method can be overridden to update the API URL as needed.
 
@@ -98,8 +98,8 @@ class MongoDBQueryArtifact(spade_artifact.Artifact):
         """
         Asynchronously establishes a connection to the MongoDB database.
         """
-        self.client = AsyncIOMotorClient(self.connection_uri)
-        self.db = self.client[self.database_name]
+        self.mongo_client = AsyncIOMotorClient(self.connection_uri)
+        self.db = self.mongo_client[self.database_name]
         self.collection = self.db[self.collection_name]
 
     async def execute_operation(self):
@@ -115,22 +115,34 @@ class MongoDBQueryArtifact(spade_artifact.Artifact):
         await self.connect_to_database()
 
         if self.operation == "find":
-            cursor = self.collection.find(self.query)
-            data = await cursor.to_list(length=None)
-            return data
+            return await self._find_operation()
         elif self.operation == "insert":
-            result = self.collection.insert_one(self.query)
-            return result.inserted_id
+            return await self._insert_operation()
         elif self.operation == "update":
-            result = self.collection.update_many(
-                self.query.get("filter", {}), self.query.get("update", {})
-            )
-            return result.modified_count
+            return await self._update_operation()
         elif self.operation == "delete":
-            result = self.collection.delete_many(self.query)
-            return result.deleted_count
+            return await self._delete_operation()
         else:
             raise ValueError(f"Unsupported operation: {self.operation}")
+
+    async def _find_operation(self):
+        cursor = self.collection.find(self.query)
+        data = await cursor.to_list(length=None)
+        return data
+
+    async def _insert_operation(self):
+        result = self.collection.insert_one(self.query)
+        return result.inserted_id
+
+    async def _update_operation(self):
+        result = self.collection.update_many(
+            self.query.get("filter", {}), self.query.get("update", {})
+        )
+        return result.modified_count
+
+    async def _delete_operation(self):
+        result = self.collection.delete_many(self.query)
+        return result.deleted_count
 
     async def run(self):
         """
@@ -159,5 +171,5 @@ class MongoDBQueryArtifact(spade_artifact.Artifact):
                 else:
                     continue_query = False
 
-                if self.client is not None:
-                    self.client.close()
+                if self.mongo_client is not None:
+                    self.mongo_client.close()
