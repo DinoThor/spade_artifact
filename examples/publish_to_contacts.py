@@ -10,10 +10,8 @@ from spade_artifact import ArtifactMixin
 
 
 class RandomGeneratorArtifact(spade_artifact.Artifact):
-    def on_available(self, jid, stanza):
-        logger.success(
-            "[{}] Agent {} is available.".format(self.name, jid.split("@")[0])
-        )
+    def on_available(self, jid, presence_info, last_presence):
+        logger.success("[{}] Agent {} is available.".format(self.name, jid))
 
     def on_subscribed(self, jid):
         logger.success(
@@ -31,7 +29,7 @@ class RandomGeneratorArtifact(spade_artifact.Artifact):
                 self.name, jid.split("@")[0]
             )
         )
-        self.presence.approve(jid)
+        self.presence.approve_subscription(jid)
         self.presence.subscribe(jid)
 
     async def setup(self):
@@ -57,11 +55,15 @@ class ConsumerAgent(ArtifactMixin, Agent):
         super().__init__(*args, **kwargs)
         self.artifact_jid = artifact_jid
 
+    def on_available(self, jid, presence_info, last_presence):
+        logger.success("[{}] Artefact {} is available.".format(self.name, jid))
+
     def artifact_callback(self, artifact, payload):
         logger.info(f"Received: [{artifact}] -> {payload}")
 
     async def setup(self):
         await asyncio.sleep(2)
+        self.presence.on_available = self.on_available
         self.presence.approve_all = True
         self.presence.subscribe(self.artifact_jid)
         self.presence.set_available()
@@ -71,23 +73,26 @@ class ConsumerAgent(ArtifactMixin, Agent):
 
 async def main():
 
-        XMPP_SERVER = input("XMPP Server> ")
-        artifact_jid = f"{input('Artifact name> ')}@{XMPP_SERVER}"
-        artifact_passwd = getpass.getpass()
+    XMPP_SERVER = input("XMPP Server> ")
+    artifact_jid = f"{input('Artifact name> ')}@{XMPP_SERVER}"
+    artifact_passwd = getpass.getpass()
 
-        agent_jid = f"{input('Agent name> ')}@{XMPP_SERVER}"
-        agent_passwd = getpass.getpass()
+    agent_jid = f"{input('Agent name> ')}@{XMPP_SERVER}"
+    agent_passwd = getpass.getpass()
 
-        artifact = RandomGeneratorArtifact(artifact_jid, artifact_passwd)
-        await artifact.start()
+    artifact = RandomGeneratorArtifact(artifact_jid, artifact_passwd)
+    await artifact.start()
 
-        agent = ConsumerAgent(jid=agent_jid, password=agent_passwd, artifact_jid=artifact_jid)
-        await agent.start()
+    agent = ConsumerAgent(
+        jid=agent_jid, password=agent_passwd, artifact_jid=artifact_jid
+    )
+    await agent.start()
 
-        await artifact.join()
+    await artifact.join()
 
-        await artifact.stop()
-        await agent.stop()
+    await artifact.stop()
+    await agent.stop()
+
 
 if __name__ == "__main__":
     spade.run(main())
